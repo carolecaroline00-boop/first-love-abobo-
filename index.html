@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>First Love Abobo - Gestion Église</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+body { background-color: #fff8f0; color: #660000; }
+.navbar { background-color: #990000; }
+.btn-gold { background-color: #d4af37; color: #660000; }
+.btn-gold:hover { background-color: #b5942f; color: #fff; }
+.container { margin-top: 30px; }
+.logo { height: 80px; cursor:pointer; }
+.hidden { display: none; }
+.section { transition: all 0.5s ease; }
+</style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">
+      <img src="assets/logo.png" alt="First Love Abobo" class="logo" id="logoAdmin">
+      First Love Abobo
+    </a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav me-auto" id="menuNav">
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('formNouveau')">Nouveaux venus</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('formRapport')">Rapport</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('dashboard')">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('gestionBergers')">Bergers</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('gestionMembres')">Membres</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('rapportAnnuel')">Rapport annuel</a></li>
+      </ul>
+      <button class="btn btn-gold" onclick="logout()">Déconnexion</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- Connexion -->
+  <div id="loginSection" class="section">
+    <h2>Connexion</h2>
+    <div class="mb-3">
+      <label>Email ou ID</label>
+      <input type="text" id="email" class="form-control" placeholder="Ex: ADMIR ou pasteur1@test.com">
+    </div>
+    <div class="mb-3">
+      <label>Mot de passe</label>
+      <input type="password" id="password" class="form-control">
+    </div>
+    <button class="btn btn-gold" onclick="login()">Se connecter</button>
+    <p id="loginError" class="text-danger mt-2"></p>
+  </div>
+
+  <!-- Nouveaux venus -->
+  <div id="formNouveau" class="hidden section">
+    <h2>Ajouter Nouveau Venu</h2>
+    <div class="mb-3"><label>Nom complet</label><input type="text" id="nouveauNom" class="form-control"></div>
+    <div class="mb-3"><label>Date d’arrivée</label><input type="date" id="nouveauDate" class="form-control"></div>
+    <div class="mb-3">
+      <label>Baptême</label>
+      <select id="nouveauBaptise" class="form-control">
+        <option value="Non">Non</option>
+        <option value="Oui">Oui</option>
+      </select>
+    </div>
+    <button class="btn btn-gold" onclick="ajouterNouveau()">Enregistrer</button>
+    <p id="nouveauMsg" class="text-success mt-2"></p>
+  </div>
+
+  <!-- Formulaire Rapport -->
+  <div id="formRapport" class="hidden section">
+    <h2>Ajouter Rapport Mensuel</h2>
+    <div class="mb-3"><label>Mois</label><input type="month" id="rapportMois" class="form-control"></div>
+    <div class="mb-3"><label>Résumé du rapport</label><textarea id="rapportTexte" class="form-control"></textarea></div>
+    <button class="btn btn-gold" onclick="ajouterRapport()">Enregistrer</button>
+    <button class="btn btn-gold" onclick="exportRapportPDF()">Exporter PDF</button>
+    <button class="btn btn-gold" onclick="exportRapportExcel()">Exporter Excel</button>
+    <p id="rapportMsg" class="text-success mt-2"></p>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden section">
+    <h2>Dashboard</h2>
+    <canvas id="chartNouveaux"></canvas>
+    <canvas id="chartRapports" class="mt-4"></canvas>
+    <canvas id="chartPresence" class="mt-4"></canvas>
+  </div>
+
+  <!-- Gestion Bergers -->
+  <div id="gestionBergers" class="hidden section">
+    <h2>Ajouter Berger</h2>
+    <div class="mb-3"><label>Nom complet</label><input type="text" id="bergerNom" class="form-control"></div>
+    <div class="mb-3"><label>Email</label><input type="email" id="bergerEmail" class="form-control"></div>
+    <div class="mb-3"><label>Mot de passe</label><input type="password" id="bergerPassword" class="form-control"></div>
+    <button class="btn btn-gold" onclick="ajouterBerger()">Ajouter</button>
+    <p id="bergerMsg" class="text-success mt-2"></p>
+  </div>
+
+  <!-- Gestion Membres -->
+  <div id="gestionMembres" class="hidden section">
+    <h2>Liste des Membres</h2>
+    <table class="table table-bordered" id="tableMembres">
+      <thead><tr><th>Nom</th><th>Date arrivée</th><th>Baptême</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Rapport Annuel -->
+  <div id="rapportAnnuel" class="hidden section">
+    <h2>Rapport Annuel</h2>
+    <button class="btn btn-gold" onclick="exportAnnuelPDF()">Exporter PDF</button>
+    <button class="btn btn-gold" onclick="exportAnnuelExcel()">Exporter Excel</button>
+    <table class="table table-striped" id="tableAnnuel">
+      <thead><tr><th>Mois</th><th>Nouveaux venus</th><th>Rapports</th><th>Présence Dimanche</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+// === CONFIG FIREBASE ===
+const firebaseConfig = {
+  apiKey: "TON_API_KEY",
+  authDomain: "TON_PROJET.firebaseapp.com",
+  databaseURL: "https://TON_PROJET.firebaseio.com",
+  projectId: "TON_PROJET",
+  storageBucket: "TON_PROJET.appspot.com",
+  messagingSenderId: "TON_SENDER_ID",
+  appId: "TON_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+let currentUserRole = "";
+
+// === NAVIGATION ===
+function showSection(sectionId){
+  ["formNouveau","formRapport","dashboard","gestionBergers","gestionMembres","rapportAnnuel"].forEach(s=>{
+    document.getElementById(s).classList.add("hidden");
+  });
+  document.getElementById(sectionId).classList.remove("hidden");
+  if(sectionId==="dashboard") chargerDashboard();
+  if(sectionId==="gestionMembres") chargerMembres();
+  if(sectionId==="rapportAnnuel") chargerRapportAnnuel();
+}
+
+// === AUTHENTIFICATION ===
+function login(){
+  const email=document.getElementById("email").value;
+  const password=document.getElementById("password").value;
+  auth.signInWithEmailAndPassword(email,password)
+    .then(cred=>{
+      db.ref("roles/"+cred.user.uid).once("value").then(snap=>{
+        currentUserRole = snap.val()||"berger";
+        showSectionsByRole();
+        document.getElementById("loginSection").classList.add("hidden");
+      });
+    })
+    .catch(err=>document.getElementById("loginError").innerText=err.message);
+}
+function logout(){auth.signOut().then(()=>location.reload());}
+function showSectionsByRole(){
+  if(currentUserRole!=="admin" && currentUserRole!=="pasteur"){
+    document.getElementById("gestionBergers").classList.add("hidden");
+  }
+}
+
+// === MEMBRES ===
+function ajouterNouveau(){
+  const nom=document.getElementById("nouveauNom").value;
+  const date=document.getElementById("nouveauDate").value;
+  const baptise=document.getElementById("nouveauBaptise").value;
+  if(!nom||!date) return;
+  db.ref("nouveaux").push({nom,date,baptise,ajoutePar:auth.currentUser.uid});
+  document.getElementById("nouveauMsg").innerText="Nouveau venu ajouté !";
+  chargerMembres();
+}
+function chargerMembres(){
+  db.ref("nouveaux").once("value").then(snapshot=>{
+    const tbody=document.querySelector("#tableMembres tbody");
+    tbody.innerHTML="";
+    const data=snapshot.val()||{};
+    Object.entries(data).forEach(([id,m])=>{
+      const tr=document.createElement("tr");
+      let actions="";
+      if(currentUserRole==="admin" || currentUserRole==="pasteur"){
+        actions=`<button class="btn btn-sm btn-warning" onclick="modifierMembre('${id}')">Modifier</button>
+                 <button class="btn btn-sm btn-danger" onclick="supprimerMembre('${id}')">Supprimer</button>`;
+      }
+      tr.innerHTML=`<td>${m.nom}</td><td>${m.date}</td><td>${m.baptise||"Non"}</td><td>${actions}</td>`;
+      tbody.appendChild(tr);
+    });
+  });
+}
+function modifierMembre(id){
+  const nom=prompt("Nom complet :");
+  const date=prompt("Date arrivée (YYYY-MM-DD) :");
+  const baptise=prompt("Baptisé ? Oui/Non :");
+  if(nom && date && baptise){
+    db.ref("nouveaux/"+id).update({nom,date,baptise});
+    chargerMembres();
+  }
+}
+function supprimerMembre(id){
+  if(confirm("Voulez-vous vraiment supprimer ce membre ?")){
+    db.ref("nouveaux/"+id).remove();
+    chargerMembres();
+  }
+}
+
+// === RAPPORTS ===
+function ajouterRapport(){
+  const mois=document.getElementById("rapportMois").value;
+  const texte=document.getElementById("rapportTexte").value;
+  if(!mois||!texte) return;
+  db.ref("rapports").push({mois,texte,ajoutePar:auth.currentUser.uid});
+  document.getElementById("rapportMsg").innerText="Rapport ajouté !";
+}
+function exportRapportPDF(){
+  const doc=new jspdf.jsPDF();
+  doc.text("Rapport Mensuel",10,10);
+  doc.save("rapport.pdf");
+}
+function exportRapportExcel(){
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([["Exemple","Rapport"]]);
+  XLSX.utils.book_append_sheet(wb,ws,"Rapports");
+  XLSX.writeFile(wb,"rapport.xlsx");
+}
+
+// === BERGERS ===
+function ajouterBerger(){
+  const nom=document.getElementById("bergerNom").value;
+  const email=document.getElementById("bergerEmail").value;
+  const password=document.getElementById("bergerPassword").value;
+  if(!nom||!email||!password) return;
+  auth.createUserWithEmailAndPassword(email,password)
+    .then(user=> db.ref("bergers/"+user.user.uid).set({nom,email}))
+    .then(()=> db.ref("roles/"+user.user.uid).set("berger"))
+    .then(()=>document.getElementById("bergerMsg").innerText="Berger ajouté !")
+    .catch(err=>alert(err.message));
+}
+
+// === DASHBOARD ===
+let chartNouveaux, chartRapports, chartPresence;
+function chargerDashboard(){
+  const ctx=document.getElementById("chartNouveaux").getContext("2d");
+  const ctx2=document.getElementById("chartRapports").getContext("2d");
+  const ctx3=document.getElementById("chartPresence").getContext("2d");
+
+  db.ref("nouveaux").on("value",snapshot=>{
+    const data=snapshot.val()||{};
+    const counts={};
+    Object.values(data).forEach(d=>{const month=d.date.slice(0,7); counts[month]=(counts[month]||0)+1;});
+    const labels=Object.keys(counts).sort();
+    const values=Object.values(counts);
+    if(chartNouveaux){chartNouveaux.data.labels=labels; chartNouveaux.data.datasets[0].data=values; chartNouveaux.update();}
+    else{chartNouveaux=new Chart(ctx,{type:"bar",data:{labels,datasets:[{label:"Nouveaux venus",data:values,backgroundColor:"#d4af37"}]}});}
+  });
+
+  db.ref("rapports").on("value",snapshot=>{
+    const data=snapshot.val()||{};
+    const counts={};
+    Object.values(data).forEach(d=>{const month=d.mois; counts[month]=(counts[month]||0)+1;});
+    const labels=Object.keys(counts).sort();
+    const values=Object.values(counts);
+    if(chartRapports){chartRapports.data.labels=labels; chartRapports.data.datasets[0].data=values; chartRapports.update();}
+    else{chartRapports=new Chart(ctx2,{type:"bar",data:{labels,datasets:[{label:"Rapports mensuels",data:values,backgroundColor:"#660000"}]}});}
+  });
+
+  db.ref("presences").on("value",snapshot=>{
+    const data=snapshot.val()||{};
+    const counts={};
+    Object.values(data).forEach(d=>{const week=d.date.slice(0,10); counts[week]=(counts[week]||0)+1;});
+    const labels=Object.keys(counts).sort();
+    const values=Object.values(counts);
+    if(chartPresence){chartPresence.data.labels=labels; chartPresence.data.datasets[0].data=values; chartPresence.update();}
+    else{chartPresence=new Chart(ctx3,{type:"line",data:{labels,datasets:[{label:"Présence dimanche",data:values,borderColor:"#007bff",fill:false}]}});}
+  });
+}
+
+// === RAPPORT ANNUEL ===
+function chargerRapportAnnuel(){
+  const tbody=document.querySelector("#tableAnnuel tbody");
+  tbody.innerHTML="";
+  Promise.all([db.ref("nouveaux").once("value"), db.ref("rapports").once("value")])
+    .then(([snapN,snapR])=>{
+      const n=snapN.val()||{};
+      const r=snapR.val()||{};
+      const countsN={}, countsR={};
+      Object.values(n).forEach(d=>{const m=d.date.slice(0,7); countsN[m]=(countsN[m]||0)+1;});
+      Object.values(r).forEach(d=>{const m=d.mois; countsR[m]=(countsR[m]||0)+1;});
+      const allMonths=[...new Set([...Object.keys(countsN),...Object.keys(countsR)])].sort();
+      allMonths.forEach(m=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML=`<td>${m}</td><td>${countsN[m]||0}</td><td>${countsR[m]||0}</td><td>${0}</td>`;
+        tbody.appendChild(tr);
+      });
+    });
+}
+
+// === SURVEILLER LA CONNEXION ===
+auth.onAuthStateChanged(user=>{
+  if(user){
+    document.getElementById("loginSection").classList.add("hidden");
+    db.ref("roles/"+user.uid).once("value").then(snap=>{
+      currentUserRole = snap.val()||"berger";
+      showSectionsByRole();
+    });
+  }
+});
+</script>
+</body>
+</html>
